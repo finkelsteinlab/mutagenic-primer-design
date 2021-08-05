@@ -2,7 +2,7 @@ import matplotlib
 
 
 plt_params_dict = {'font.sans-serif': 'Arial',
-                   'mathtext.default'}
+                   'mathtext.default': 'regular'}
 
 def set_styles(plt, matplotlib):
     """
@@ -12,8 +12,8 @@ def set_styles(plt, matplotlib):
     try:
         plt.style.use('default')        
         for param, value in plt_params_dict.items():
-        print(param, value)
-        plt.rcParams.update({param: value})
+            print(param, value)
+            plt.rcParams.update({param: value})
     except:
         print("""
             Before running set_styles(), you must:
