@@ -24,4 +24,5 @@ def source_path(**kwargs):
 package_path = package_path()
 source_path = source_path()
 
+bin_dir = os.path.join(source_path, 'bin')
 human_codon_table_path = os.path.join(package_path, 'Human_Codon_Usage.csv')

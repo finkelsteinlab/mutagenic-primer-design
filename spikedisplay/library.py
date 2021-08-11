@@ -1,5 +1,6 @@
 import os
 import datetime
+from itertools import compress
 
 import pandas as pd
 import numpy as np
@@ -12,6 +13,52 @@ from Bio.SeqUtils import MeltingTemp as mt
 import Levenshtein
 # spikedisplay imports
 from spikedisplay import constants
+
+def clean_NNN_primers(output_path):
+    """
+    Return the .txt CSV found at *output* path with
+    blank spaces removed and reverse primers dropped
+    """
+    primer_df = pd.read_csv(output_path)
+    primer_df.reset_index(inplace=True)
+    primer_df.columns = ['primer_name', 'sequence_nnn']
+    # Drop nan values (empty spaces between plates)
+    nan_mask = ~primer_df.sequence_nnn.isna()
+    primer_df = primer_df.loc[nan_mask, :]
+    # Drop reverse primers
+    rev_mask = ['rev' not in name for name in primer_df.primer_name]
+    primer_df = primer_df.loc[rev_mask, :]
+    primer_df.index = np.arange(0, len(primer_df), 1)
+
+    return primer_df
+
+def annotate_NNN_primers(primer_df, sequence_file_path):
+    """
+    Take primer_df, add a column for NN melt temp, WT codon,
+    and WT aminio acid at each codon
+    """
+    # Read in the sequence file and select the open reading frame
+    # (ORF) recognized as all upper case characters in the file
+    with open(sequence_file_path) as file:
+        seq = file.read()
+        seq_list = list(seq)
+        bools = [string.isupper() for string in seq_list]
+        ORF_list = list(compress(seq_list, bools))
+        ORF = ''.join(ORF_list)
+
+    # Split the open reading frame (ORF) into a list of codons
+    codons = [ORF[i:i+3] for i in range(0, len(ORF), 3)]
+    # Add original codon that NNN replaced to primer dataframe (*primer_df*)
+    primer_df.loc[:, 'codon_to_replace'] = codons
+    # Add amino acid abbreviation to primer dataframe
+    amino_acids = [str(Seq(codon).translate()) for codon in codons]
+    primer_df.loc[:, 'amino_acid'] = amino_acids
+    # Add melt temp to primer dataframe
+    primers = [Seq(p) for p in list(primer_df.sequence_nnn)]
+    mts = [mt.Tm_NN(p) for p in primers]
+    primer_df.loc[:, 'Tm_NN'] = mts
+
+    return primer_df
 
 def evaluate_aa_codons(primer_df, primer_idx):
     """
@@ -27,16 +74,15 @@ def evaluate_aa_codons(primer_df, primer_idx):
     usage in humans in terms of fraction, etc
     """
     print(f'Finding alternative codons for primer number {primer_idx}')
-    pdf = primer_df
-    primer_seq_NNN = pdf.loc[primer_idx, 'sequence_nnn']
-    primer_Tm_NN = pdf.loc[primer_idx, 'Tm_NN']
+    primer_seq_NNN = primer_df.loc[primer_idx, 'sequence_nnn']
+    primer_Tm_NN = primer_df.loc[primer_idx, 'Tm_NN']
     codon_table = pd.read_csv(constants.human_codon_table_path)
     # Don't need stop codons in this library so will drop all
     # stop codons from the *codon_table*
     codon_table = codon_table[codon_table.amino_acid!='*']
     # Iterating through primers in the generated NNN library
-    codon_to_replace = pdf.codon_to_replace[primer_idx]
-    orig_aa = pdf.amino_acid[primer_idx]
+    codon_to_replace = primer_df.codon_to_replace[primer_idx]
+    orig_aa = primer_df.amino_acid[primer_idx]
     # Iterate through all amino acids in the *codon_table*, find the
     # Codon for each with the highest distance from *codon_to_replace*
     # and the highest codon usage
@@ -78,10 +124,10 @@ def evaluate_aa_codons(primer_df, primer_idx):
         for idx in list(codons_df.index):
             orig_seq = codons_df.loc[idx, 'primer_orig']
             new_seq = codons_df.loc[idx, 'primer_new']
-            if orig_seq == new_seq:
-                print(f'WARNING: generated new sequence same as original codon')
-            else:
-                print(f'Successfully generated new codon')
+            # if orig_seq == new_seq:
+            #     print(f'WARNING: generated new sequence same as original codon')
+            # else:
+            #     print(f'Successfully generated new codon')
             Tm = mt.Tm_GC(orig_seq, new_seq)
             codons_df.loc[:, 'Tm_real'] = Tm
         # Add codons_df for this amino acid to the list of dfs for this primer position
@@ -102,13 +148,15 @@ def score_and_select_codon_dfs(primer_codon_dfs, **kwargs):
     # Choose which ranked codon to select. They are
     # ranked in order from highest score to lowest
     rank_to_select = kwargs.get('rank_to_select', 0)
-    return_scored_df = kwargs.get('return_scored_df', False)    
+    return_scored_df = kwargs.get('return_scored_df', False)
+    usage_weight = kwargs.get('usage_weight', 1) 
+    mismatch_weight = kwargs.get('mismatch_weight', 1)
     dfs = primer_codon_dfs
     selected_df = pd.DataFrame()
     selected_primers = []
     scored_dfs = []
     for df in dfs:
-        df.loc[:, 'score'] = df.fraction + df.levenshtein_dist
+        df.loc[:, 'score'] = df.fraction*usage_weight + df.levenshtein_dist*mismatch_weight
         sorted_df = df.sort_values(by='score', ascending=False, ignore_index=True)
         scored_dfs.append(sorted_df)
         if len(sorted_df) == 1:
@@ -124,7 +172,8 @@ def score_and_select_codon_dfs(primer_codon_dfs, **kwargs):
     else:
         return selected_primers
 
-def generate_library(primer_df, rank_to_select, keep_wt=True, return_dfs=False, writepath=None):
+def generate_library(primer_df, rank_to_select, keep_wt=True,
+                     return_dfs=False, writepath=None, **kwargs):
     """
     Take the primer_df, which contains a list of NNN primers generated by
     J. Bloom's NNN codon tiling script, generate lists of primers to mutate
@@ -137,19 +186,27 @@ def generate_library(primer_df, rank_to_select, keep_wt=True, return_dfs=False, 
     If *return_unselected_df*, also return the raw df of all primers found
     for every amino acid at every position before selection
     """
+    usage_weight = kwargs.get('usage_weight', 1)
+    mismatch_weight = kwargs.get('mismatch_weight', 1)
     timestamp = datetime.datetime.today().timestamp()
+    # Set a name for the primer library .csv to be saved at.
     if writepath == None:
         library_name = primer_df.primer_name.iloc[0].split('-')[0]
-        filename = f'{library_name}_rank-{rank_to_select}_oligo_library_{timestamp}.csv'
+        weights = f'usage-weight-{usage_weight}_mismatch-weight-{mismatch_weight}'
+        filename = f'{library_name}_rank-{rank_to_select}_{weights}_oligo_library_{timestamp}.csv'
         writepath = os.path.join(constants.source_path, filename)
     all_aa_codons_dfs = []
     selected_primer_dfs = []
+    # Set keyword arguments for how to score and select
+    # the final library of primers
+    score_kwargs = {'rank_to_select': rank_to_select,
+                    'return_scored_df': True,
+                    'usage_weight': usage_weight,
+                    'mismatch_weight': mismatch_weight,}
     for primer_idx in list(primer_df.index):
 
         amino_acid_dfs = evaluate_aa_codons(primer_df, primer_idx)
-        primers, scored_dfs = score_and_select_codon_dfs(amino_acid_dfs,
-                                                         rank_to_select=rank_to_select,
-                                                         return_scored_df=True)
+        primers, scored_dfs = score_and_select_codon_dfs(amino_acid_dfs, **score_kwargs)
         # Combine all data collected on each primer and mutants to return to user if desired
         all_aa_codons_df = pd.concat(scored_dfs, ignore_index=True)
         all_aa_codons_dfs.append(all_aa_codons_df)
@@ -169,6 +226,11 @@ def generate_library(primer_df, rank_to_select, keep_wt=True, return_dfs=False, 
         writepath = writepath.replace('_oligo_library_', '_oligo_library_no-WT_')
     else:
         print('Keeping codons for WT amino acid')
+    # Annotate the final library dataframe with information about how
+    # it was created (weights for mismatch and codon usage etc.)
+    selected_primers_df.loc[:, 'codon_usage_weight'] = usage_weight
+    selected_primers_df.loc[:, 'mismatch_weight'] = mismatch_weight
+    selected_primers_df.loc[:, 'selected_primer_rank'] = rank_to_select
     selected_primers_df.to_csv(writepath, index=False)
     print(f'Saved primer library at {writepath}')
 
