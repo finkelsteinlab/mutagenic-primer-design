@@ -172,7 +172,7 @@ def score_and_select_codon_dfs(primer_codon_dfs, **kwargs):
     return_scored_df = kwargs.get('return_scored_df', False)
     usage_weight = kwargs.get('usage_weight', 1) 
     mismatch_weight = kwargs.get('mismatch_weight', 1)
-    screen_cut_sites = kwargs.get('screen_cut_sites', True)
+    screen_restriction_sites = kwargs.get('screen_restriction_sites', True)
 
     dfs = primer_codon_dfs
     selected_df = pd.DataFrame()
@@ -189,7 +189,7 @@ def score_and_select_codon_dfs(primer_codon_dfs, **kwargs):
         else:
             # Screen for unwanted restriction sites
             selected_primer = sorted_df.loc[rank_to_select, 'primer_new']
-            if screen_cut_sites:
+            if screen_restriction_sites:
                 is_cut_site = screen_cut_sites(selected_primer)
         selected_primers.append(selected_primer)
     print(f'Selected {len(selected_primers)} primers for this site with rank {rank_to_select}')
@@ -214,7 +214,7 @@ def generate_library(primer_df, rank_to_select, keep_wt=True,
     """
     usage_weight = kwargs.get('usage_weight', 1)
     mismatch_weight = kwargs.get('mismatch_weight', 1)
-    screen_cut_sites = kwargs.get('screen_cut_sites', True)
+    screen_restriction_sites = kwargs.get('screen_cut_sites', True)
 
     timestamp = datetime.datetime.today().timestamp()
     # Set a name for the primer library .csv to be saved at.
@@ -231,7 +231,7 @@ def generate_library(primer_df, rank_to_select, keep_wt=True,
                     'return_scored_df': True,
                     'usage_weight': usage_weight,
                     'mismatch_weight': mismatch_weight,
-                    'screen_cut_sites':, screen_cut_sites}
+                    'screen_restriction_sites': screen_restriction_sites}
     for primer_idx in list(primer_df.index):
 
         amino_acid_dfs = evaluate_aa_codons(primer_df, primer_idx)
