@@ -14,6 +14,27 @@ import Levenshtein
 # spikedisplay imports
 from spikedisplay import constants
 
+def screen_cut_sites(primer_seq):
+    """
+    Check *primer_seq* for the undesired restriction sites
+    found in the constants.cut_sites dict. If a cut site is
+    found, return True, if not, return False
+    """
+    rev_comp = str(Seq(primer_seq).reverse_complement())
+    found_cut_sites = []
+    for key, site in constants.cut_sites.items():
+        
+        if (site in primer_seq) or (site in rev_comp):
+            print(f'Found {key} cut sit in primer')
+            found_cut_sites.append(True)
+        else:
+            found_cut_sites.append(False)
+            
+    if True in found_cut_sites:
+        return True
+    else:
+        return False
+
 def clean_NNN_primers(output_path):
     """
     Return the .txt CSV found at *output* path with
@@ -52,7 +73,7 @@ def annotate_NNN_primers(primer_df, sequence_file_path):
     primer_df.loc[:, 'codon_to_replace'] = codons
     # Add amino acid abbreviation to primer dataframe
     amino_acids = [str(Seq(codon).translate()) for codon in codons]
-    primer_df.loc[:, 'amino_acid'] = amino_acidss
+    primer_df.loc[:, 'amino_acid'] = amino_acids
     # Add melt temp to primer dataframe
     primers = [Seq(p) for p in list(primer_df.sequence_nnn)]
     mts = [mt.Tm_NN(p) for p in primers]
@@ -151,6 +172,8 @@ def score_and_select_codon_dfs(primer_codon_dfs, **kwargs):
     return_scored_df = kwargs.get('return_scored_df', False)
     usage_weight = kwargs.get('usage_weight', 1) 
     mismatch_weight = kwargs.get('mismatch_weight', 1)
+    screen_cut_sites = kwargs.get('screen_cut_sites', True)
+
     dfs = primer_codon_dfs
     selected_df = pd.DataFrame()
     selected_primers = []
@@ -164,7 +187,10 @@ def score_and_select_codon_dfs(primer_codon_dfs, **kwargs):
             # only have one choice
             selected_primer = sorted_df.loc[0, 'primer_new']
         else:
+            # Screen for unwanted restriction sites
             selected_primer = sorted_df.loc[rank_to_select, 'primer_new']
+            if screen_cut_sites:
+                is_cut_site = screen_cut_sites(selected_primer)
         selected_primers.append(selected_primer)
     print(f'Selected {len(selected_primers)} primers for this site with rank {rank_to_select}')
     if return_scored_df:
@@ -188,6 +214,8 @@ def generate_library(primer_df, rank_to_select, keep_wt=True,
     """
     usage_weight = kwargs.get('usage_weight', 1)
     mismatch_weight = kwargs.get('mismatch_weight', 1)
+    screen_cut_sites = kwargs.get('screen_cut_sites', True)
+
     timestamp = datetime.datetime.today().timestamp()
     # Set a name for the primer library .csv to be saved at.
     if writepath == None:
@@ -202,7 +230,8 @@ def generate_library(primer_df, rank_to_select, keep_wt=True,
     score_kwargs = {'rank_to_select': rank_to_select,
                     'return_scored_df': True,
                     'usage_weight': usage_weight,
-                    'mismatch_weight': mismatch_weight,}
+                    'mismatch_weight': mismatch_weight,
+                    'screen_cut_sites':, screen_cut_sites}
     for primer_idx in list(primer_df.index):
 
         amino_acid_dfs = evaluate_aa_codons(primer_df, primer_idx)
