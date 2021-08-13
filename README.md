@@ -16,7 +16,7 @@ Install `virtualenv` and create an environment inside the `spikedisplay` project
 ```sh
 cd spikedisplay
 pip install virtualenv
-python -m venv .spikedsiplay
+python -m venv .spikedisplay
 ```
 
 Activate the environment
