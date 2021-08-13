@@ -26,3 +26,8 @@ source_path = source_path()
 
 bin_dir = os.path.join(source_path, 'bin')
 human_codon_table_path = os.path.join(package_path, 'Human_Codon_Usage.csv')
+
+cut_sites = {'BsmBI': 'CGTCTC',
+             'BsaI': 'GGTCTC',
+             'AaRI': 'CACCTGC',
+             'NotI': 'GCGGCCGC'}

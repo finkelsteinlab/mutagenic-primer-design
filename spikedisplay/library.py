@@ -52,7 +52,7 @@ def annotate_NNN_primers(primer_df, sequence_file_path):
     primer_df.loc[:, 'codon_to_replace'] = codons
     # Add amino acid abbreviation to primer dataframe
     amino_acids = [str(Seq(codon).translate()) for codon in codons]
-    primer_df.loc[:, 'amino_acid'] = amino_acids
+    primer_df.loc[:, 'amino_acid'] = amino_acidss
     # Add melt temp to primer dataframe
     primers = [Seq(p) for p in list(primer_df.sequence_nnn)]
     mts = [mt.Tm_NN(p) for p in primers]
