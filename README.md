@@ -34,6 +34,11 @@ Install required packages
 pip install -r requirements.txt
 ```
 
+Install `spikedisplay` package
+```sh
+python setup.py install
+```
+
 Setup `jupyter notebook` compatability
 
 ```
