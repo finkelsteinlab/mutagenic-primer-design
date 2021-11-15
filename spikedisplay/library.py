@@ -22,18 +22,20 @@ def screen_cut_sites(primer_seq):
     """
     rev_comp = str(Seq(primer_seq).reverse_complement())
     found_cut_sites = []
+    enzymes = []
     for key, site in constants.cut_sites.items():
         
         if (site in primer_seq) or (site in rev_comp):
             print(f'Found {key} cut sit in primer')
             found_cut_sites.append(True)
+            enzymes.append(key)
         else:
             found_cut_sites.append(False)
             
     if True in found_cut_sites:
-        return True
+        return True, '|'.join(enzymes)
     else:
-        return False
+        return False, None
 
 def clean_NNN_primers(output_path):
     """
@@ -182,15 +184,30 @@ def score_and_select_codon_dfs(primer_codon_dfs, **kwargs):
         df.loc[:, 'score'] = df.fraction*usage_weight + df.levenshtein_dist*mismatch_weight
         sorted_df = df.sort_values(by='score', ascending=False, ignore_index=True)
         scored_dfs.append(sorted_df)
-        if len(sorted_df) == 1:
+        # Drop primers that have golden gate cut sites defined
+        # in constants.cut_sites dictionary
+        if screen_restriction_sites:
+            # library.screen_cut_sites returns a tuple like 
+            # (True, 'enzyme1|enzyme2') if any cut sites found
+            # and (False, None) if no cut sites found
+            cut_site_bools = [screen_cut_sites(primer)[0] for primer in list(sorted_df.primer_new)]
+            enzymes = [screen_cut_sites(primer)[1] for primer in list(sorted_df.primer_new)]
+            sorted_df.loc[:, 'restriction_site'] = cut_site_bools
+            sorted_df.loc[:, 'enzymes'] = enzymes
+            screened_df = sorted_df[sorted_df.restriction_site==False].reset_index()
+            if len(screened_df) == 0:
+                print(f'Warning, no primers lacking cut sites found')
+                screened_df = sorted_df
+        else:
+            screened_df = sorted_df
+        if len(screened_df) == 1:
             # There's only one codon for this amino acid so we
             # only have one choice
-            selected_primer = sorted_df.loc[0, 'primer_new']
+            selected_primer = screened_df.loc[0, 'primer_new']
         else:
             # Screen for unwanted restriction sites
-            selected_primer = sorted_df.loc[rank_to_select, 'primer_new']
-            if screen_restriction_sites:
-                is_cut_site = screen_cut_sites(selected_primer)
+            selected_primer = screened_df.loc[rank_to_select, 'primer_new']
+
         selected_primers.append(selected_primer)
     print(f'Selected {len(selected_primers)} primers for this site with rank {rank_to_select}')
     if return_scored_df:
