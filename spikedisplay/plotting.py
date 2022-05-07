@@ -1,6 +1,3 @@
-import matplotlib
-
-
 plt_params_dict = {'font.sans-serif': 'Arial',
                    'mathtext.default': 'regular'}
 
