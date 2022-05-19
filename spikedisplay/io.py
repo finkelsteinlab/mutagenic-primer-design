@@ -180,6 +180,20 @@ def floats_to_ints(df, inplace=True, **kwargs):
     if not inplace:
         return df_final
 
+
+def label_variant_name(df):
+    """
+    Annotate variant name, e.g. 'G72D', using information already
+    annotated in the dataframe
+    """
+    df.loc[:, 'mismatch_site_in_full_length_wt_seq'] = df.mismatch_index_in_full_length_wt_seq + 1
+    wtaa_site = df.wt_aa_at_mismatch.str.cat(df.mismatch_site_in_full_length_wt_seq.map(str))
+    df.loc[:, 'variant_name'] = wtaa_site
+    wtaa_site_mutantaa = df.variant_name.str.cat(df.mutant_aa.map(str))
+    df.loc[:, 'variant_name'] = wtaa_site_mutantaa
+    newcol = df.sample_name.str.cat(df.library_name, sep='-')
+    df.loc[:, 'sample_library'] = newcol
+
 def create_all_bam_df(output_dir):
     dfs = []
     filenames = [fn for fn in os.listdir(output_dir) if 'bam.csv.gz' in fn]
@@ -199,6 +213,7 @@ def create_all_bam_df(output_dir):
         floats_to_ints(df)
         # Get rid of stop codon mutants
         df = df[df.mutant_aa!='*']
+        label_variant_name(df)
         dfs.append(df)
     all_bam_df = pd.concat(dfs, ignore_index=True)
     return all_bam_df, dfs
