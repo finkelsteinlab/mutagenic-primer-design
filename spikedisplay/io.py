@@ -8,12 +8,31 @@ import numpy as np
 
 from Bio.Seq import Seq
 from Bio import SeqIO
+from Bio import bgzf
+
+import pysam
 
 from difflib import get_close_matches
 
 from spikedisplay import constants
 
-def get_records_df(directory, reads_fn=None, **kwargs):
+def get_bam_records_list(filepath, n_records_to_get=None, *kwargs):
+    records = []
+    i=0
+    with pysam.AlignmentFile(filepath, 'r') as file:
+        for record in file:
+            records.append(record)
+            if n_records_to_get == None:
+                pass
+            else:
+                if i == n_records_to_get:
+                    break
+                else:
+                    pass
+            i+=1
+    return records
+
+def get_records_df(directory, reads_fn=None, get_n_records=None, **kwargs):
     """
     Look in <directory> for <reads_fn>. Read the file in with
     gzip.open and parse each record using the Bio (biopython) 
@@ -41,17 +60,21 @@ def get_records_df(directory, reads_fn=None, **kwargs):
     identifiers = []
     sequences = []
     lengths = []
-    fwd_barcode_primer_names = []    
-    fwd_barcode_seqs = []
-    rev_barcode_primer_names = []
-    rev_barcode_seqs = []
-    
+    i=0
     with gzip.open(os.path.join(directory, reads_fn), 'rt') as file:
         for record in SeqIO.parse(file, "fastq"):
             records.append(record)
             identifiers.append(record.id)
             sequences.append(str(record.seq))
             lengths.append(len(str(record.seq)))
+            if get_n_records != None:
+                pass
+            else:
+                if i == get_n_records:
+                    break
+                else:
+                    pass
+            i+=1
 
     df_dict = {
         'id': identifiers,
@@ -65,83 +88,6 @@ def get_records_df(directory, reads_fn=None, **kwargs):
         return records, df
     else:
         return df
-
-def lookup_barcode(record, record_type='fastq', **kwargs):
-    """
-    Return barcode primer name and sequence by looking for a barcode
-    sequence in the <record.id> and matching that barcode to the
-    <barcode_index> df 
-    """
-    return_lists = kwargs.get('return_lists', False)
-    print_status = kwargs.get('print_status', False)
-
-    if record_type=='fastq':
-        identifier =  record.id
-    elif record_type=='bam':
-        identifier = record.query_name
-    else:
-        print('Record type not accounted for. Accepted types fastq and bam')
-        
-    barcode_index = kwargs.get('barcode_index', constants.rbd_barcode_index)
-    id_list = identifier.split('_')
-    found_barcodes = []
-    for id_item in id_list:
-        
-        match = re.search(constants.patterns.barcode, id_item)
-        if match:
-            found_barcodes.append(match.group())
-
-    if len(found_barcodes)==2:
-        if print_status:
-            print(f'Found fwd and rev barcodes in identifier')
-        else:
-            pass
-    else:
-        return None
-
-    fwd_barcode = found_barcodes[1]
-    rev_barcode = found_barcodes[0]
-    # find the forward barcode in the index
-    row = barcode_index.loc[barcode_index.primer_seq.str.contains(fwd_barcode), :]
-    if len(row) == 0:
-        fwd_barcode_rc = str(Seq(fwd_barcode).reverse_complement())
-        row = barcode_index.loc[barcode_index.primer_seq.str.contains(fwd_barcode_rc), :]
-        if len(row) != 0:
-            fwd_barcode_primer = row.primer_name.iloc[0]
-        else:
-            fwd_barcode_primer = None
-    else:
-        fwd_barcode_primer = row.primer_name.iloc[0]
-        
-    # find the reverse barcode in the barcode_index
-    row = barcode_index.loc[barcode_index.primer_seq.str.contains(rev_barcode), :]
-    if len(row) == 0:
-        rev_barcode_rc = str(Seq(rev_barcode).reverse_complement())
-        row = barcode_index.loc[barcode_index.primer_seq.str.contains(rev_barcode_rc), :]
-        if len(row) != 0:
-            rev_barcode_primer = row.primer_name.iloc[0]
-        else:
-            rev_barcode_primer = None
-    else:
-        rev_barcode_primer = row.primer_name.iloc[0]
-
-    keys = [
-        'rev_barcode_primer_name',
-        'rev_barcode_seq',
-        'fwd_barcode_primer_name',
-        'fwd_barcode_seq'
-        ]
-    vals = [
-        rev_barcode_primer,
-        rev_barcode,
-        fwd_barcode_primer,
-        fwd_barcode
-    ]
-    d = dict(zip(keys, vals))
-    if not return_lists:
-        return d
-    else:
-        return keys, vals
 
 def get_mismatch_indices(a, b, print_output=False):
     if len(a)==len(b):
@@ -191,8 +137,9 @@ def label_variant_name(df):
     df.loc[:, 'variant_name'] = wtaa_site
     wtaa_site_mutantaa = df.variant_name.str.cat(df.mutant_aa.map(str))
     df.loc[:, 'variant_name'] = wtaa_site_mutantaa
-    newcol = df.sample_name.str.cat(df.library_name, sep='-')
-    df.loc[:, 'sample_library'] = newcol
+    if 'library_name' in list(df.columns):
+        newcol = df.sample_name.str.cat(df.library_name, sep='-')
+        df.loc[:, 'sample_library'] = newcol
 
 def create_all_bam_df(output_dir):
     dfs = []
@@ -237,10 +184,10 @@ def assign_bin_from_barcode(record, record_type='fastq', **kwargs):
             # a reverse barcode in the sequence identifier
             pass
         else:
-            print(f'Only found {len(match.groups())} barcodes')
+            # print(f'Only found {len(match.groups())} barcodes')
             return 0, 'None', 'None'
     else:
-        print(f'No barcodes found')
+        # print(f'No barcodes found')
         return 0, 'None', 'None'
     
     bc1 = match.groups()[0]

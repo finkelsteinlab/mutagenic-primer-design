@@ -1,12 +1,15 @@
 import numpy as np
 import pandas as pd
 
-def flag_normalize(df1, df2, reads_cutoff=20):
+def flag_normalize(df1, df2, reads_cutoff=20, **kwargs):
+    xvar = kwargs.get('xvar', 'gaussian_center_x')
+    yvar = kwargs.get('yvar', 'gaussian_center_y')
+
     df1 = df1[df1.total_variant_reads >= reads_cutoff]
     df2 = df2[df2.total_variant_reads >= reads_cutoff]
     mergedf = df1.merge(df2, on='variant_name', how='left')
-    signal_center = mergedf.gaussian_center_x
-    control_center = mergedf.gaussian_center_y
+    signal_center = mergedf[xvar]
+    control_center = mergedf[yvar]
 
     normalized = signal_center/control_center
 

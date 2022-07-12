@@ -32,6 +32,9 @@ def set_styles(plt, matplotlib):
             import matplotlib
             """)
 
+def legend_outside():
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2)
+
 def human_format(
     ax,
     axname='x',
@@ -126,7 +129,16 @@ def plot_library_correlations(plasmiddf, libdf, **kwargs):
     i=1
     plasmid_lib_name = plasmiddf.sample_library.unique()[0]
     filename = f'{plasmid_lib_name}_variant_coverage_correlations.{filetype}'
-    for sample_library in libdf.sample_library.unique():
+
+    sample_libraries = [0, 1, 2]
+    for lib in libdf.sample_library.unique():
+        if 'Integrated' in lib:
+            sample_libraries[0] = lib
+        elif 'FLAG' in lib:
+            sample_libraries[1] = lib
+        elif 'ACE2' in lib:
+            sample_libraries[2] = lib
+    for sample_library in sample_libraries:
         if not sample_library == plasmid_lib_name:
             subdf = libdf[libdf.sample_library==sample_library]
             mergedf = plasmiddf.merge(subdf, how='left', on='variant_name')
@@ -153,3 +165,4 @@ def plot_library_correlations(plasmiddf, libdf, **kwargs):
     savepath = os.path.join(os.getcwd(), filename)
     fig.savefig(savepath)
     print(f'Saved figure at {savepath}')
+    return ax
