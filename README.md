@@ -1,6 +1,6 @@
 # `spikedisplay`
 
-Oligo library generation for PCR-based deep mutational scanning
+Oligo library generation for primer extension-based deep mutational scanning
 
 ## Installation
 
