@@ -1,13 +1,15 @@
 # `spikedisplay`
 
-Oligo library generation for deep mutational scanning and associated analysis
+Oligo library generation for PCR-based deep mutational scanning
 
 ## Installation
 
 In command line, navigate to the directory where you want to install the project and clone the repo
 
 ```sh
-cd /path/to/directory
+# In this example we're cloning the repo into
+# home directory
+cd ~
 git clone https://github.com/johnpcooper/spikedisplay.git
 ```
 
@@ -22,7 +24,6 @@ python -m venv .spikedisplay
 Activate the environment
 
 ```sh
-# Linux
 source .spikedisplay/bin/activate
 ```
 
@@ -46,9 +47,16 @@ python -m ipykernel install --user --name=.spikedisplay
 
 ## Primer library generation notebook
 
-Navigate to the spikedisplay/notebooks directory and open the `Primer_Library_Generation` notebook
+This [notebook](https://github.com/johnpcooper/spikedisplay/blob/main/notebooks/Primer_Library_Generation.ipynb) contains an example workflow generating a codon-optimized primer library for PCR-based saturating mutagensis the receptor-binding domain of the SARS-CoV-2 spike protein. Library generation can be applied to any open reading frame of interest by changing the input sequence file (in this case located at notebooks/Spike_RBD.txt)
+
+Navigate to the spikedisplay/notebooks directory and open the `Primer_Library_Generation.ipynb` notebook
 
 ```sh
+# Activate environment
+cd ~/spikedisplay
+source .spikedisplay/bin/activate
 cd notebooks
 jupyter notebook Primer_Library_Generation.ipynb
 ```
+
+Run the notebook cell by cell and adjust sequence inputs and other parameters where desired
