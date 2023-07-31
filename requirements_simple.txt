@@ -1,9 +1,0 @@
-pandas
-numpy
-biopython
-Levenshtein
-matplotlib
-seaborn
-ipython
-jupyter
-ipykernel
