@@ -1,5 +1,4 @@
 import os
-
 import pandas as pd
 
 def package_path(**kwargs):
@@ -28,7 +27,6 @@ source_path = source_path()
 
 bin_dir = os.path.join(source_path, 'bin')
 human_codon_table_path = os.path.join(package_path, 'Human_Codon_Usage.csv')
-rbd_barcode_index = pd.read_csv('/root/projects/dms/data/Barcodes_RBD_NGS.csv')
 
 cut_sites = {'BsmBI': 'CGTCTC',
              'BsaI': 'GGTCTC',
