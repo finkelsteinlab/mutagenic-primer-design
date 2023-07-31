@@ -22,8 +22,6 @@ python -m venv .spikedisplay
 Activate the environment
 
 ```sh
-# Powershell
-.spikedisplay/Scripts/activate
 # Linux
 source .spikedisplay/bin/activate
 ```
@@ -41,10 +39,11 @@ python setup.py install
 
 Setup `jupyter notebook` compatability
 
-```
+```sh
 # Add the .spikedisplay environment to the kernels available in jupyter
 python -m ipykernel install --user --name=.spikedisplay
 ```
+
 ## Primer library generation notebook
 
 Navigate to the spikedisplay/notebooks directory and open the `Primer_Library_Generation` notebook

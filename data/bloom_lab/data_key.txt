@@ -1,1 +1,0 @@
-1-s2.0-S0092867420310035-mmc2.csv: From https://doi.org/10.1016/j.cell.2020.08.012, table s2 Single-Mutant Effects on Expression and Binding, Related to Figure 3
